@@ -1,13 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 import { theme } from './theme';
 import { X, AlertCircle, CheckCircle } from 'lucide-react';
 
-export default function ResetPasswordModal({ isOpen, onClose }) {
+export default function ResetPasswordModal() {
+  const [isOpen, setIsOpen] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+
+  // 1. Escuchamos automáticamente si el usuario llegó a la app mediante el enlace de recuperación del correo
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsOpen(true); // ¡Abre el modal automáticamente!
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   if (!isOpen) return null;
 
@@ -17,7 +31,7 @@ export default function ResetPasswordModal({ isOpen, onClose }) {
     setMessage('');
     setLoading(true);
 
-    // Supabase actualiza la contraseña del usuario temporalmente autenticado
+    // Supabase actualiza la contraseña del usuario temporalmente autenticado por el enlace
     const { error } = await supabase.auth.updateUser({
       password: newPassword
     });
@@ -26,9 +40,10 @@ export default function ResetPasswordModal({ isOpen, onClose }) {
       setError(error.message);
     } else {
       setMessage('¡Contraseña actualizada con éxito!');
-      // Cerramos el modal después de 2 segundos
+      // Cerramos el modal después de 2 segundos y redirigimos al login
       setTimeout(() => {
-        onClose();
+        setIsOpen(false);
+        window.location.href = '/login'; // O la ruta de tu login
       }, 2000);
     }
     setLoading(false);
@@ -44,7 +59,7 @@ export default function ResetPasswordModal({ isOpen, onClose }) {
         backgroundColor: '#FFF', borderRadius: '16px', width: '100%',
         maxWidth: '400px', padding: '24px', position: 'relative'
       }}>
-        <button onClick={onClose} style={{ position: 'absolute', right: '16px', top: '16px', border: 'none', background: 'none', cursor: 'pointer' }}>
+        <button onClick={() => setIsOpen(false)} style={{ position: 'absolute', right: '16px', top: '16px', border: 'none', background: 'none', cursor: 'pointer' }}>
           <X size={20} color={theme.colors.textSecondary} />
         </button>
 
