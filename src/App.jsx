@@ -6,6 +6,7 @@ import AuthModal from './AuthModal';
 import CreateCardModal from './CreateCardModal';
 import AdminPanel from './AdminPanel';
 import ResetPasswordModal from './ResetPasswordModal';
+import ProUpgradeModal from './ProUpgradeModal';
 
 export default function App() {
   const [cards, setCards] = useState([]);
@@ -24,6 +25,42 @@ export default function App() {
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState(null); // Modal de detalle de tarjeta
   const [selectedGacetaArticle, setSelectedGacetaArticle] = useState(null); // Modal para leer artículo completo de la Gaceta
+  const [isProModalOpen, setIsProModalOpen] = useState(false);
+  const handleOpenAddModal = async () => {
+      if (!user) {
+        setIsAuthOpen(true);
+        return;
+      }
+
+      try {
+        // 1. Consultar si el usuario es PRO en profiles
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('plan_type')
+          .eq('id', user.id)
+          .single();
+
+        // 2. Contar cuántos negocios tiene en business_cards
+        const { count } = await supabase
+          .from('business_cards')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+
+        const isPro = profile?.plan_type === 'pro';
+        const businessCount = count || 0;
+
+        // 3. Evaluar
+        if (!isPro && businessCount >= 1) {
+          setIsProModalOpen(true);
+        } else {
+          setSelectedCard(null);
+          setIsCreateOpen(true);
+        }
+      } catch (err) {
+        console.error("Error al verificar negocios:", err);
+        setIsCreateOpen(true);
+      }
+    };
 
 const [currentVipIndex, setCurrentVipIndex] = useState(0);
 const sponsoredCards = cards.filter(c => c.is_sponsored);
@@ -848,6 +885,12 @@ const filteredCards = cards.filter(card => {
         user={user}
         categories={categoriesList}
         onCardCreated={fetchCards}
+      />
+
+      <ProUpgradeModal 
+        isOpen={isProModalOpen} 
+        onClose={() => setIsProModalOpen(false)} 
+        user={user} 
       />
 
       <AdminPanel

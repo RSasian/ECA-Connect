@@ -5,7 +5,7 @@ import { X, AlertCircle, Plus, Trash2, CheckCircle, ArrowLeft } from 'lucide-rea
 
 export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
   const [isSignUp, setIsSignUp] = useState(false);
-  const [isForgotPassword, setIsForgotPassword] = useState(false); // NUEVO ESTADO: controla la vista de recuperación
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -37,7 +37,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
     setChildren(updatedChildren);
   };
 
-  // Función exclusiva para enviar el correo de recuperación
+  // Función para enviar correo de recuperación
   const handleForgotPasswordSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -78,7 +78,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
       }
 
       const { data, error: signUpError } = await supabase.auth.signUp({
-        email,
+        email: cleanEmail,
         password,
         options: {
           data: {
@@ -94,20 +94,30 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
         return;
       }
 
+      // 1. Crear/actualizar perfil en la tabla profiles
       if (data.user) {
         await supabase.from('profiles').upsert([
           {
             id: data.user.id,
-            email,
+            email: cleanEmail,
             full_name: fullName,
             children: children,
           },
         ]);
-        onAuthSuccess(data.user);
       }
+
+      // 2. Cerrar sesión automática para forzar la validación de correo
+      await supabase.auth.signOut();
+
+      // 3. Notificar al usuario e impedir el acceso
+      alert("¡Registro exitoso! Te hemos enviado un correo de verificación. Por favor revisa tu bandeja de entrada (y carpetas de spam) y haz clic en el enlace de activación antes de iniciar sesión.");
+
+      setLoading(false);
+      onClose();
     } else {
+      // INICIO DE SESIÓN
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.trim().toLowerCase(),
         password,
       });
 
@@ -117,8 +127,18 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
         return;
       }
 
+      // Validar si el correo YA fue confirmado
+      if (!data.user?.email_confirmed_at) {
+        await supabase.auth.signOut();
+        setError('Tu cuenta aún no ha sido verificada. Revisa el correo de confirmación enviado a tu bandeja.');
+        setLoading(false);
+        return;
+      }
+
+      // Si todo está en orden y verificado:
       if (data.user) {
         onAuthSuccess(data.user);
+        onClose();
       }
     }
     setLoading(false);
@@ -160,7 +180,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           </div>
         )}
 
-        {/* VISTA 1: RECUPERAR CONTRASEÑA (SÓLO CORREO) */}
+        {/* VISTA 1: RECUPERAR CONTRASEÑA */}
         {isForgotPassword ? (
           <form onSubmit={handleForgotPasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <p style={{ fontSize: '12px', color: theme.colors.textSecondary, margin: '0 0 4px 0' }}>
@@ -187,7 +207,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
             </button>
           </form>
         ) : (
-          /* VISTA 2: FORMULARIO NORMAL (LOGIN / REGISTRO) */
+          /* VISTA 2: FORMULARIO LOGIN / REGISTRO */
           <>
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {isSignUp && (
