@@ -8,16 +8,16 @@ export default function ProUpgradeModal({ isOpen, onClose, user }) {
   // REEMPLAZA CON TU NÚMERO DE WHATSAPP (Incluye código de país, ej: 521 + 10 dígitos)
   const ADMIN_WHATSAPP = '5214492286585';
 
-    const handleWhatsAppClick = () => {
-        const fullName = user?.user_metadata?.full_name || user?.email || 'Padre de Familia';
-        const email = user?.email || '';
-        
-        // Incluimos explícitamente "ECA Connect" en el mensaje
-        const message = `¡Hola! Soy ${fullName} (${email}). Me interesa contratar el Plan PRO de $990 MXN / ciclo escolar para mi cuenta en ECA Connect.`;
-        
-        const whatsappUrl = `https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent(message)}`;
-        window.open(whatsappUrl, '_blank');
-    };
+  const handleWhatsAppClick = () => {
+    const fullName = user?.user_metadata?.full_name || user?.email || 'Padre de Familia';
+    const email = user?.email || '';
+    
+    // Incluimos explícitamente "ECA Connect" en el mensaje
+    const message = `¡Hola! Soy ${fullName} (${email}). Me interesa contratar el Plan PRO de $990 MXN / ciclo escolar para mi cuenta en ECA Connect.`;
+    
+    const whatsappUrl = `https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
+  };
 
   return (
     <div style={{
@@ -64,8 +64,15 @@ export default function ProUpgradeModal({ isOpen, onClose, user }) {
           <div style={{ fontSize: '32px', fontWeight: '900', color: theme.colors.primary, lineHeight: '1.1' }}>
             $990 <span style={{ fontSize: '14px', fontWeight: 'normal' }}>MXN</span>
           </div>
-          <div style={{ fontSize: '12px', color: '#059669', fontWeight: 'bold', marginTop: '4px' }}>
+
+          {/* 1. LEYENDA VERDE (LIGADA DIRECTO A LOS $990 Y AL CICLO ESCOLAR) */}
+          <div style={{ fontSize: '14px', color: '#059669', fontWeight: 'bold', marginTop: '4px' }}>
             Acceso completo durante todo el ciclo escolar
+          </div>
+          
+          {/* 2. LEYENDA ROJA (EQUIVALENTE MENSUAL ABAJO) */}
+          <div style={{ fontSize: '11px', color: theme.colors.secondary, fontWeight: 'bold', marginTop: '4px' }}>
+            (o solo $150 MXN mensuales)
           </div>
         </div>
 
@@ -105,7 +112,7 @@ export default function ProUpgradeModal({ isOpen, onClose, user }) {
           <MessageCircle size={20} /> Solicitar Upgrade por WhatsApp
         </button>
 
-        <p style={{ textAlign: 'center', fontSize: '11px', color: theme.colors.textSecondary, marginTop: '12px', marginBotton: 0 }}>
+        <p style={{ textAlign: 'center', fontSize: '11px', color: theme.colors.textSecondary, marginTop: '12px', marginBottom: 0 }}>
           Te daremos atención directa y activaremos tu cuenta inmediatamente al verificar tu pago.
         </p>
       </div>

@@ -128,25 +128,33 @@ export default function AdminPanel({ isOpen, onClose, onCategoriesUpdated }) {
     }
   };
 
-  const handleUpdateProfile = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+const handleUpdateProfile = async (e) => {
+  e.preventDefault();
+  setLoading(true);
 
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        full_name: editingProfile.full_name,
-        children_data: editingProfile.children_data
-      })
-      .eq('id', editingProfile.id);
+  // 1. Verificamos si la cuenta seleccionada es PRO
+  const isPro = editingProfile.plan_type === 'pro';
 
-    setLoading(false);
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      full_name: editingProfile.full_name,
+      plan_type: editingProfile.plan_type, // Controla la suscripción (free / pro)
+      is_premium: isPro,                   // Mantiene compatibilidad previa
+      max_cards: isPro ? 999 : 1,          // Límite de negocios según el plan
+      children_data: editingProfile.children_data
+    })
+    .eq('id', editingProfile.id);
 
-    if (!error) {
-      setEditingProfile(null);
-      fetchDataForAdmin();
-    }
-  };
+  setLoading(false);
+
+  if (!error) {
+    setEditingProfile(null);
+    fetchDataForAdmin();
+  } else {
+    alert("Error al actualizar el perfil: " + error.message);
+  }
+};
 
   const handleAddCategory = async (e) => {
     e.preventDefault();
@@ -465,21 +473,125 @@ export default function AdminPanel({ isOpen, onClose, onCategoriesUpdated }) {
         {activeTab === 'profiles' && (
           <div>
             {editingProfile ? (
-              <form onSubmit={handleUpdateProfile} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <h3 style={{ fontSize: '14px', fontWeight: 'bold', color: theme.colors.primary }}>Editar Perfil y Familia</h3>
+              <form onSubmit={handleUpdateProfile} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <h3 style={{ fontSize: '15px', fontWeight: 'bold', color: theme.colors.primary, margin: 0 }}>Editar Perfil y Familia</h3>
+                
+                {/* Campo Responsable */}
                 <div>
-                  <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#666' }}>Responsable</label>
-                  <input type="text" value={editingProfile.full_name || ''} onChange={e => setEditingProfile({...editingProfile, full_name: e.target.value})} style={inputStyle} />
+                  <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#666', display: 'block', marginBottom: '4px' }}>Responsable / Padre de Familia</label>
+                  <input 
+                    type="text" 
+                    value={editingProfile.full_name || ''} 
+                    onChange={e => setEditingProfile({...editingProfile, full_name: e.target.value})} 
+                    style={inputStyle} 
+                  />
                 </div>
+
+                {/* CAMPO NUEVO: Selector de Plan (PRO / FREE) */}
                 <div>
-                  <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#666' }}>Hijos (JSON)</label>
-                  <textarea value={JSON.stringify(editingProfile.children_data || [], null, 2)} onChange={e => {
-                    try { setEditingProfile({...editingProfile, children_data: JSON.parse(e.target.value)}); } catch (err) {}
-                  }} style={{ ...inputStyle, fontFamily: 'monospace', fontSize: '11px', height: '100px', resize: 'none' }} />
+                  <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#666', display: 'block', marginBottom: '4px' }}>Plan de la Cuenta</label>
+                  <select
+                    value={editingProfile.plan_type || 'free'}
+                    onChange={e => setEditingProfile({...editingProfile, plan_type: e.target.value})}
+                    style={{
+                      ...inputStyle,
+                      backgroundColor: editingProfile.plan_type === 'pro' ? '#FEF3C7' : '#FFF',
+                      color: editingProfile.plan_type === 'pro' ? '#D97706' : '#334155',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    <option value="free">Gratuito (Límite 1 negocio)</option>
+                    <option value="pro">ECA Connect PRO (Ilimitado)</option>
+                  </select>
                 </div>
-                <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                  <button type="submit" disabled={loading} style={{ background: theme.colors.primary, color: '#FFF', border: 'none', padding: '10px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>Guardar</button>
-                  <button type="button" onClick={() => setEditingProfile(null)} style={{ background: '#CBD5E0', border: 'none', padding: '10px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>Cancelar</button>
+
+                {/* SECCIÓN DINÁMICA DE HIJOS (Remplaza el textarea JSON) */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#666' }}>Alumnos Registrados:</label>
+                  
+                  {(!editingProfile.children_data || editingProfile.children_data.length === 0) ? (
+                    <p style={{ fontSize: '11px', color: '#A0AEC0', fontStyle: 'italic', margin: '2px 0' }}>No hay alumnos registrados en esta familia.</p>
+                  ) : (
+                    editingProfile.children_data.map((child, index) => (
+                      <div key={index} style={{ border: '1px solid #E2E8F0', padding: '10px', borderRadius: '8px', backgroundColor: '#F7FAFC' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                          <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#718096' }}>Alumno #{index + 1}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = editingProfile.children_data.filter((_, i) => i !== index);
+                              setEditingProfile({ ...editingProfile, children_data: updated });
+                            }}
+                            style={{ border: 'none', background: 'none', color: '#E53E3E', cursor: 'pointer', padding: 0 }}
+                            title="Eliminar alumno"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+
+                        <input
+                          type="text"
+                          placeholder="Nombre completo del Alumno"
+                          value={child.name || ''}
+                          onChange={e => {
+                            const updated = [...editingProfile.children_data];
+                            updated[index].name = e.target.value;
+                            setEditingProfile({ ...editingProfile, children_data: updated });
+                          }}
+                          style={{ ...inputStyle, marginBottom: '6px' }}
+                        />
+
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <select
+                            value={child.level || 'Primaria'}
+                            onChange={e => {
+                              const updated = [...editingProfile.children_data];
+                              updated[index].level = e.target.value;
+                              setEditingProfile({ ...editingProfile, children_data: updated });
+                            }}
+                            style={{ ...inputStyle, flex: 1.2, backgroundColor: '#FFF' }}
+                          >
+                            <option value="Preescolar">Preescolar</option>
+                            <option value="Primaria">Primaria</option>
+                            <option value="Secundaria">Secundaria</option>
+                            <option value="Preparatoria">Preparatoria</option>
+                          </select>
+
+                          <input
+                            type="text"
+                            placeholder="Grado (ej. 3°A)"
+                            value={child.grade || ''}
+                            onChange={e => {
+                              const updated = [...editingProfile.children_data];
+                              updated[index].grade = e.target.value;
+                              setEditingProfile({ ...editingProfile, children_data: updated });
+                            }}
+                            style={{ ...inputStyle, flex: 0.8 }}
+                          />
+                        </div>
+                      </div>
+                    ))
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const current = editingProfile.children_data || [];
+                      setEditingProfile({
+                        ...editingProfile,
+                        children_data: [...current, { name: '', level: 'Primaria', grade: '' }]
+                      });
+                    }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', color: theme.colors.primary, fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', width: 'fit-content', marginTop: '2px' }}
+                  >
+                    <Plus size={14} /> Agregar otro hijo/a
+                  </button>
+                </div>
+
+                {/* Botones de Acción */}
+                <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                  <button type="submit" disabled={loading} style={{ background: theme.colors.primary, color: '#FFF', border: 'none', padding: '10px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', flex: 1 }}>Guardar Cambios</button>
+                  <button type="button" onClick={() => setEditingProfile(null)} style={{ background: '#CBD5E0', color: '#2D3748', border: 'none', padding: '10px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>Cancelar</button>
                 </div>
               </form>
             ) : (
@@ -504,10 +616,15 @@ export default function AdminPanel({ isOpen, onClose, onCategoriesUpdated }) {
                       return nameMatch || emailMatch;
                     })
                     .map(p => (
-                      <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px', background: '#F7FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                      <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: '#F7FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
                         <div>
-                          <strong style={{ fontSize: '13px', display: 'block', color: theme.colors.textPrimary }}>{p.full_name || 'Sin nombre'}</strong>
-                          <span style={{ fontSize: '11px', color: '#718096' }}>{p.email}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <strong style={{ fontSize: '13px', color: theme.colors.textPrimary }}>{p.full_name || 'Sin nombre'}</strong>
+                            {p.plan_type === 'pro' && (
+                              <span style={{ backgroundColor: '#FEF3C7', color: '#D97706', fontSize: '10px', fontWeight: 'bold', padding: '2px 6px', borderRadius: '10px' }}>PRO</span>
+                            )}
+                          </div>
+                          <span style={{ fontSize: '11px', color: '#718096', display: 'block' }}>{p.email}</span>
                         </div>
                         <button onClick={() => setEditingProfile(p)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: theme.colors.primary, padding: '6px' }}><Edit2 size={18} /></button>
                       </div>
